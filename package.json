@@ -1,0 +1,8 @@
+{
+  "name": "tilux-proxy",
+  "version": "1.0.0",
+  "description": "Secure API Proxy for Tilux ASM",
+  "dependencies": {
+    "http-proxy-middleware": "^2.0.6"
+  }
+}
