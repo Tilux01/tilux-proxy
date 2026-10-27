@@ -22,7 +22,7 @@ export default async function handler(req) {
             if (!secret_key) return new Response(JSON.stringify({ status: 'error', message: 'PAYSTACK_SECRET_KEY not set on proxy' }), { status: 500 });
 
             const initPaystack = async (curr, amt_val) => {
-                const amt_kobo = curr === 'NGN' ? Math.floor(amt_val * 1500 * 100) : Math.floor(amt_val * 100);
+                const amt_kobo = curr === 'NGN' ? Math.floor(amt_val * 1000 * 100) : Math.floor(amt_val * 100);
                 const res = await fetch('https://api.paystack.co/transaction/initialize', {
                     method: 'POST',
                     headers: {
