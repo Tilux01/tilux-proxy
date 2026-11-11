@@ -64,7 +64,7 @@ export default async function handler(req) {
         let trialCostUsd = 0.0;
         let trialMaxUsd = 1.00;
 
-        if (isTiluxSecret && hostId) {
+        if (hostId) {
             const nowMs = Date.now();
             const cached = quotaCache.get(hostId);
 
@@ -194,7 +194,7 @@ export default async function handler(req) {
             resJson = JSON.parse(resText);
         } catch (_) {}
 
-        if (response.ok && resJson && resJson.usage && isTiluxSecret && hostId && usage) {
+        if (response.ok && resJson && resJson.usage && hostId && usage) {
             const promptTok = resJson.usage.prompt_tokens || 0;
             const compTok = resJson.usage.completion_tokens || 0;
             const cacheHitTok = resJson.usage.prompt_cache_hit_tokens || 0;
