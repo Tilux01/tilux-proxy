@@ -18,6 +18,17 @@ export default async function handler(req) {
         });
     }
 
+    if (req.method === "GET" || req.method === "HEAD") {
+        return new Response(JSON.stringify({ status: "healthy", service: "tilux-proxy-edge", time: Date.now() }), {
+            status: 200,
+            headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-store"
+            }
+        });
+    }
+
     if (req.method !== "POST") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
             status: 405,
