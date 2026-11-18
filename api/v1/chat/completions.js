@@ -64,7 +64,10 @@ export default async function handler(req) {
         const isVisionOrGemini = model.includes("gemini") || model.startsWith("google/") || model.includes("nano");
 
         // 2. Ultra-Fast Quota Check with Edge Memory Cache (0ms latency on repeated turns)
+        const userId = req.headers.get("x-tilux-user-id") || req.headers.get("X-Tilux-User-Id") || bodyJson.user_id || "";
         const hostId = req.headers.get("x-tilux-host-id") || req.headers.get("X-Tilux-Host-Id") || bodyJson.host_id || "";
+        const accountEntity = userId ? `users/${userId}` : (hostId ? `hosts/${hostId}` : "");
+        const cacheKey = userId ? `u:${userId}` : (hostId ? `h:${hostId}` : "");
         const fbBase = (process.env.FIREBASE_DB_URL || "https://tiluxasm-default-rtdb.firebaseio.com").replace(/\/$/, "");
         const fbSecret = process.env.FIREBASE_DB_SECRET || "";
         const authParam = fbSecret ? `?auth=${fbSecret}` : "";
@@ -75,9 +78,9 @@ export default async function handler(req) {
         let trialCostUsd = 0.0;
         let trialMaxUsd = 1.00;
 
-        if (hostId) {
+        if (accountEntity) {
             const nowMs = Date.now();
-            const cached = quotaCache.get(hostId);
+            const cached = quotaCache.get(cacheKey);
 
             if (cached && (nowMs - cached.timestamp < CACHE_TTL_MS)) {
                 // Instant cache hit: 0ms Firebase roundtrip!
@@ -88,7 +91,7 @@ export default async function handler(req) {
                 trialMaxUsd = cached.trialMaxUsd;
             } else {
                 try {
-                    const usageRes = await fetch(`${fbBase}/hosts/${hostId}/usage.json${authParam}`);
+                    const usageRes = await fetch(`${fbBase}/${accountEntity}/usage.json${authParam}`);
                     if (usageRes.ok) {
                         usage = await usageRes.json();
                     }
@@ -106,7 +109,7 @@ export default async function handler(req) {
                         total_cost_usd: 0.0,
                         last_updated: nowSec
                     };
-                    fetch(`${fbBase}/hosts/${hostId}/usage.json${authParam}`, {
+                    fetch(`${fbBase}/${accountEntity}/usage.json${authParam}`, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(usage)
@@ -119,7 +122,7 @@ export default async function handler(req) {
                 isTrialValid = (nowSec < trialEndsAt) && (trialCostUsd < trialMaxUsd);
                 walletBalance = parseFloat(usage.wallet_balance_usd || 0.0);
 
-                quotaCache.set(hostId, {
+                quotaCache.set(cacheKey, {
                     timestamp: nowMs,
                     usage,
                     isTrialValid,
@@ -235,7 +238,7 @@ export default async function handler(req) {
             usage.last_updated = Math.floor(Date.now() / 1000);
 
             // Update edge memory cache
-            quotaCache.set(hostId, {
+            quotaCache.set(cacheKey, {
                 timestamp: Date.now(),
                 usage,
                 isTrialValid,
@@ -245,7 +248,7 @@ export default async function handler(req) {
             });
 
             // Asynchronous non-blocking write to Firebase (never delays the response to user)
-            fetch(`${fbBase}/hosts/${hostId}/usage.json${authParam}`, {
+            fetch(`${fbBase}/${accountEntity}/usage.json${authParam}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(usage)
