@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Secure API Proxy for Tilux ASM",
   "dependencies": {
-    "http-proxy-middleware": "^2.0.6"
-  }
+    "http-proxy-middleware": "^2.0.6",
+    "nodemailer": "^10.6.0"
+  },
+  "type": "module"
 }

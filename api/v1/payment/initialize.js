@@ -1,29 +1,35 @@
-export const config = {
-    runtime: 'edge',
-};
+import { sendPaymentEmail } from '../mailer.js';
 
-export default async function handler(req) {
+export default async function handler(req, res) {
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', '*');
+        return res.status(204).end();
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
+        return res.status(405).json({ status: 'error', message: 'Method not allowed' });
     }
 
     try {
-        const data = await req.json();
+        const data = req.body || {};
         const gateway = (data.gateway || 'paystack').toLowerCase();
         const amount_usd = parseFloat(data.amount_usd || 10.0);
         const email = data.email || 'user@mail.com';
         const currency = (data.currency || 'USD').toUpperCase();
         const reference = data.reference;
-
         const callback_url = 'https://paystack.com';
 
         if (gateway === 'paystack') {
             const secret_key = process.env.PAYSTACK_SECRET_KEY;
-            if (!secret_key) return new Response(JSON.stringify({ status: 'error', message: 'PAYSTACK_SECRET_KEY not set on proxy' }), { status: 500 });
+            if (!secret_key) return res.status(500).json({ status: 'error', message: 'PAYSTACK_SECRET_KEY not set on proxy' });
 
             const initPaystack = async (curr, amt_val) => {
                 const amt_kobo = curr === 'NGN' ? Math.floor(amt_val * 1000 * 100) : Math.floor(amt_val * 100);
-                const res = await fetch('https://api.paystack.co/transaction/initialize', {
+                const r = await fetch('https://api.paystack.co/transaction/initialize', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${secret_key}`,
@@ -37,31 +43,42 @@ export default async function handler(req) {
                         callback_url: callback_url
                     })
                 });
-                return await res.json();
+                return await r.json();
             };
 
             let res_json = await initPaystack(currency, amount_usd);
             if (!res_json.status && currency === 'USD') {
-                // fallback to NGN
                 res_json = await initPaystack('NGN', amount_usd);
             }
 
             if (res_json.status) {
-                return new Response(JSON.stringify({
+                // Send pending payment receipt email asynchronously
+                if (email && email.includes('@')) {
+                    sendPaymentEmail({
+                        to: email,
+                        status: 'pending',
+                        amount: amount_usd,
+                        currency: currency,
+                        reference: reference,
+                        gateway: 'Paystack'
+                    }).catch(err => console.warn('[Payment Init Email Notice]', err));
+                }
+
+                return res.status(200).json({
                     status: 'success',
                     checkout_url: res_json.data.authorization_url,
                     reference: reference,
                     gateway: 'paystack'
-                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                });
             } else {
-                return new Response(JSON.stringify({ status: 'error', message: res_json.message }), { status: 400 });
+                return res.status(400).json({ status: 'error', message: res_json.message });
             }
 
         } else if (gateway === 'flutterwave') {
             const secret_key = process.env.FLUTTERWAVE_SECRET_KEY;
-            if (!secret_key) return new Response(JSON.stringify({ status: 'error', message: 'FLUTTERWAVE_SECRET_KEY not set on proxy' }), { status: 500 });
+            if (!secret_key) return res.status(500).json({ status: 'error', message: 'FLUTTERWAVE_SECRET_KEY not set on proxy' });
 
-            const res = await fetch('https://api.flutterwave.com/v3/payments', {
+            const r = await fetch('https://api.flutterwave.com/v3/payments', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${secret_key}`,
@@ -80,21 +97,32 @@ export default async function handler(req) {
                 })
             });
 
-            const res_json = await res.json();
+            const res_json = await r.json();
             if (res_json.status === 'success') {
-                return new Response(JSON.stringify({
+                if (email && email.includes('@')) {
+                    sendPaymentEmail({
+                        to: email,
+                        status: 'pending',
+                        amount: amount_usd,
+                        currency: currency,
+                        reference: reference,
+                        gateway: 'Flutterwave'
+                    }).catch(err => console.warn('[Payment Init Email Notice]', err));
+                }
+
+                return res.status(200).json({
                     status: 'success',
                     checkout_url: res_json.data.link,
                     reference: reference,
                     gateway: 'flutterwave'
-                }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                });
             } else {
-                return new Response(JSON.stringify({ status: 'error', message: res_json.message }), { status: 400 });
+                return res.status(400).json({ status: 'error', message: res_json.message });
             }
         }
 
-        return new Response(JSON.stringify({ status: 'error', message: 'Unsupported gateway' }), { status: 400 });
+        return res.status(400).json({ status: 'error', message: 'Unsupported gateway' });
     } catch (e) {
-        return new Response(JSON.stringify({ status: 'error', message: e.message }), { status: 500 });
+        return res.status(500).json({ status: 'error', message: e.message });
     }
 }
