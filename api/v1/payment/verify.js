@@ -77,27 +77,35 @@ export default async function handler(req, res) {
         // Send delivery receipt email
         if (verified) {
             if (customerEmail && customerEmail.includes('@')) {
-                sendPaymentEmail({
-                    to: customerEmail,
-                    status: 'successful',
-                    amount: amount_usd,
-                    currency: 'USD',
-                    reference: reference,
-                    gateway: gateway
-                }).catch(err => console.warn('[Payment Success Email Notice]', err));
+                try {
+                    await sendPaymentEmail({
+                        to: customerEmail,
+                        status: 'successful',
+                        amount: amount_usd,
+                        currency: 'USD',
+                        reference: reference,
+                        gateway: gateway
+                    });
+                } catch (err) {
+                    console.warn('[Payment Success Email Notice]', err);
+                }
             }
             return res.status(200).json({ status: 'success', message: 'Payment verified.' });
         } else if (isFailed) {
             if (customerEmail && customerEmail.includes('@')) {
-                sendPaymentEmail({
-                    to: customerEmail,
-                    status: 'failed',
-                    amount: amount_usd,
-                    currency: 'USD',
-                    reference: reference,
-                    gateway: gateway,
-                    reason: failReason
-                }).catch(err => console.warn('[Payment Failed Email Notice]', err));
+                try {
+                    await sendPaymentEmail({
+                        to: customerEmail,
+                        status: 'failed',
+                        amount: amount_usd,
+                        currency: 'USD',
+                        reference: reference,
+                        gateway: gateway,
+                        reason: failReason
+                    });
+                } catch (err) {
+                    console.warn('[Payment Failed Email Notice]', err);
+                }
             }
             return res.status(400).json({ status: 'failed', message: failReason || 'Payment failed.' });
         } else {

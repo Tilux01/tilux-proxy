@@ -52,16 +52,20 @@ export default async function handler(req, res) {
             }
 
             if (res_json.status) {
-                // Send pending payment receipt email asynchronously
+                // Send pending payment receipt email
                 if (email && email.includes('@')) {
-                    sendPaymentEmail({
-                        to: email,
-                        status: 'pending',
-                        amount: amount_usd,
-                        currency: currency,
-                        reference: reference,
-                        gateway: 'Paystack'
-                    }).catch(err => console.warn('[Payment Init Email Notice]', err));
+                    try {
+                        await sendPaymentEmail({
+                            to: email,
+                            status: 'pending',
+                            amount: amount_usd,
+                            currency: currency,
+                            reference: reference,
+                            gateway: 'Paystack'
+                        });
+                    } catch (err) {
+                        console.warn('[Payment Init Email Notice]', err);
+                    }
                 }
 
                 return res.status(200).json({
@@ -100,14 +104,18 @@ export default async function handler(req, res) {
             const res_json = await r.json();
             if (res_json.status === 'success') {
                 if (email && email.includes('@')) {
-                    sendPaymentEmail({
-                        to: email,
-                        status: 'pending',
-                        amount: amount_usd,
-                        currency: currency,
-                        reference: reference,
-                        gateway: 'Flutterwave'
-                    }).catch(err => console.warn('[Payment Init Email Notice]', err));
+                    try {
+                        await sendPaymentEmail({
+                            to: email,
+                            status: 'pending',
+                            amount: amount_usd,
+                            currency: currency,
+                            reference: reference,
+                            gateway: 'Flutterwave'
+                        });
+                    } catch (err) {
+                        console.warn('[Payment Init Email Notice]', err);
+                    }
                 }
 
                 return res.status(200).json({

@@ -79,7 +79,7 @@ export async function verifyOtpFromFirebase(email, enteredCode) {
         }
 
         if (String(record.code).trim() === String(enteredCode).trim()) {
-            fetch(url, { method: 'DELETE' }).catch(() => {});
+            try { await fetch(url, { method: 'DELETE' }); } catch (_) {}
             return { valid: true };
         }
 
